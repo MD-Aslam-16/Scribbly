@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Skribbl Guess Helper",
+  "version": "1.0.0",
+  "description": "Suggests candidate words for skribbl.io based on the hint pattern and lets you fill the guess into chat.",
+  "permissions": [],
+  "host_permissions": ["https://skribbl.io/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://skribbl.io/*"],
+      "js": ["src/wordlists.js", "src/matcher.js", "src/dom.js", "src/overlay.js", "src/content.js"],
+      "css": ["src/overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "128": "icons/icon128.png"
+  }
+}
