@@ -8,9 +8,15 @@
   "content_scripts": [
     {
       "matches": ["https://skribbl.io/*"],
-      "js": ["src/wordlists.js", "src/matcher.js", "src/learning.js", "src/dom.js", "src/overlay.js", "src/content.js"],
+      "js": ["src/matcher.js", "src/learning.js", "src/dom.js", "src/overlay.js", "src/content.js"],
       "css": ["src/overlay.css"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["data/skribbl-words.json"],
+      "matches": ["https://skribbl.io/*"]
     }
   ],
   "icons": {

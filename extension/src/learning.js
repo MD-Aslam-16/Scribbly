@@ -2,67 +2,62 @@
 // skribbl.io answers, persists counts across sessions via
 // chrome.storage.local, and computes a ranking weight per word.
 //
-// Ranking model:
-//   - Base weight by source: skribbl-list words rank above common
-//     English words, since they're drawn from the game's own pool.
-//   - Each confirmed sighting of a word (revealed as the round's
-//     answer) bumps its learned count. Weight adds log(1 + count) so
-//     frequently-seen words rise but don't fully dominate over
-//     never-seen words from the skribbl list.
-//   - A word learned from gameplay that wasn't in either static list
-//     gets added to the library with the skribbl base weight, since it
-//     came directly from a real skribbl.io round.
+// Ranking model (skribbl-only word list, no generic English fallback):
+//   - Base weight comes from the bundled word bank's "picked" count
+//     (how often the word was actually chosen as a skribbl.io answer
+//     in the source data), so intrinsically common answers already
+//     rank higher out of the box.
+//   - Each confirmed sighting during actual play (revealed as the
+//     round's answer) bumps a locally-learned count. Weight adds
+//     log(1 + count) so frequently-seen words rise but don't fully
+//     dominate over never-seen words with a high base "picked" score.
+//   - A word learned from gameplay that wasn't in the bundled bank at
+//     all gets added to the library with a modest base weight, since
+//     it's a real confirmed skribbl.io answer even though the static
+//     bank missed it.
 
 (function (root) {
   "use strict";
 
   const STORAGE_KEY = "skribblGuesserLearnedWords";
-  const BASE_WEIGHT_SKRIBBL = 100;
-  const BASE_WEIGHT_COMMON = 10;
-  const BASE_WEIGHT_LEARNED_NEW = 100; // treated like a confirmed skribbl word
+  const BASE_WEIGHT_MIN = 10; // floor so a 0-"picked" bank word still ranks above nothing
+  const BASE_WEIGHT_LEARNED_NEW = 10; // word seen in-game but absent from the bundled bank
 
   /**
-   * Computes the ranking weight for a word given its source and how
-   * many times it's been confirmed as an actual answer.
+   * Computes the ranking weight for a word given its bundled base
+   * ("picked") score and how many times it's been confirmed as an
+   * actual answer during play.
    */
   function computeWeight(baseWeight, learnedCount) {
-    return baseWeight + Math.log(1 + (learnedCount || 0)) * 25;
+    const base = Math.max(BASE_WEIGHT_MIN, baseWeight || 0);
+    return base + Math.log(1 + (learnedCount || 0)) * 25;
   }
 
   /**
-   * Builds the full weighted word list by merging the static skribbl
-   * and common lists with learned counts.
+   * Builds the full weighted word list by merging the bundled skribbl
+   * word bank with locally-learned counts.
    *
-   * @param {string[]} skribblWords
-   * @param {string[]} commonWords
+   * @param {Array<{word: string, picked: number}>} skribblWords - the
+   *   bundled skribbl.io word bank.
    * @param {Object<string, number>} learnedCounts - word -> times seen
+   *   confirmed as an answer during actual play.
    * @returns {Array<{word: string, weight: number}>}
    */
-  function buildWeightedEntries(skribblWords, commonWords, learnedCounts) {
+  function buildWeightedEntries(skribblWords, learnedCounts) {
     learnedCounts = learnedCounts || {};
     const seen = new Set();
     const entries = [];
 
-    for (const word of skribblWords) {
-      const key = word.toLowerCase();
+    for (const entry of skribblWords) {
+      const key = entry.word.toLowerCase();
       seen.add(key);
       entries.push({
         word: key,
-        weight: computeWeight(BASE_WEIGHT_SKRIBBL, learnedCounts[key]),
+        weight: computeWeight(entry.picked, learnedCounts[key]),
       });
     }
 
-    for (const word of commonWords) {
-      const key = word.toLowerCase();
-      if (seen.has(key)) continue; // already added at higher base weight
-      seen.add(key);
-      entries.push({
-        word: key,
-        weight: computeWeight(BASE_WEIGHT_COMMON, learnedCounts[key]),
-      });
-    }
-
-    // Words learned from real games that aren't in either static list.
+    // Words learned from real games that aren't in the bundled bank.
     for (const key of Object.keys(learnedCounts)) {
       if (seen.has(key)) continue;
       entries.push({
@@ -113,8 +108,7 @@
 
   const api = {
     STORAGE_KEY,
-    BASE_WEIGHT_SKRIBBL,
-    BASE_WEIGHT_COMMON,
+    BASE_WEIGHT_MIN,
     BASE_WEIGHT_LEARNED_NEW,
     computeWeight,
     buildWeightedEntries,
