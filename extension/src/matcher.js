@@ -85,9 +85,11 @@
    * @param {Set<string>|string[]} [excludedLetters] - letters known NOT
    *   to be in the word (e.g. from wrong guesses), only applied to blanks.
    * @param {number} [limit=10] - max results to return.
+   * @param {Set<string>|string[]} [excludeWords] - exact words to leave
+   *   out entirely (e.g. already submitted as a wrong guess this round).
    * @returns {string[]} candidate words, best guesses first.
    */
-  function findCandidates(entries, hintText, excludedLetters, limit) {
+  function findCandidates(entries, hintText, excludedLetters, limit, excludeWords) {
     limit = limit || 10;
     const pattern = parseHintPattern(hintText);
     if (!pattern) return [];
@@ -95,6 +97,8 @@
       excludedLetters instanceof Set
         ? excludedLetters
         : new Set(excludedLetters || []);
+    const excludedWordSet =
+      excludeWords instanceof Set ? excludeWords : new Set(excludeWords || []);
 
     const matches = [];
     for (const entry of entries) {
@@ -102,6 +106,7 @@
       // Collapse repeated/leading/trailing whitespace but keep single
       // spaces between words so they line up against WORD_BREAK tokens.
       const normalized = word.replace(/\s+/g, " ").trim();
+      if (excludedWordSet.has(normalized)) continue;
       if (wordMatchesPattern(normalized, pattern, excluded)) {
         matches.push({ word: normalized, weight: entry.weight || 0 });
       }

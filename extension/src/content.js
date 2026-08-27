@@ -7,6 +7,9 @@
   let bankWords = []; // [{word, picked}], loaded from data/skribbl-words.json
   let weightedEntries = [];
   let lastHintText = null;
+  // Words we've already submitted as a guess for the current round,
+  // so we never suggest (or resubmit) the same wrong answer twice.
+  let triedWords = new Set();
 
   function rebuildEntries(learnedCounts) {
     weightedEntries = window.SkribblLearning.buildWeightedEntries(
@@ -29,6 +32,7 @@
   }
 
   function handlePick(word) {
+    triedWords.add(word.toLowerCase());
     window.SkribblDom.submitGuess(word);
   }
 
@@ -45,6 +49,7 @@
 
     if (!hintText) {
       lastHintText = null;
+      triedWords = new Set(); // between rounds, clear what we've tried
       window.SkribblOverlay.setStatus("Waiting for a round…");
       return;
     }
@@ -56,7 +61,8 @@
       weightedEntries,
       hintText,
       null,
-      10
+      10,
+      triedWords
     );
     window.SkribblOverlay.setCandidates(candidates);
   }

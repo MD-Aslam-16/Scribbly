@@ -154,3 +154,19 @@ test("findCandidates: multi-word hint requires word break at the same position",
     ["ice cream"]
   );
 });
+
+test("findCandidates: excludeWords omits already-tried words entirely", () => {
+  const words = [
+    { word: "cat", weight: 10 },
+    { word: "car", weight: 5 },
+    { word: "can", weight: 1 },
+  ];
+  const results = findCandidates(words, "c a _", null, 10, new Set(["cat"]));
+  assert.deepStrictEqual(results, ["car", "can"]);
+});
+
+test("findCandidates: excludeWords accepts a plain array too", () => {
+  const words = entries(["cat", "car"]);
+  const results = findCandidates(words, "c a _", null, 10, ["cat"]);
+  assert.deepStrictEqual(results, ["car"]);
+});

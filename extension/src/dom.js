@@ -1,6 +1,10 @@
 // DOM integration: reads the current hint from skribbl.io's page and
 // fills guesses into the chat input. Selectors are centralized here so
-// they're easy to patch if skribbl.io changes its markup.
+// they're easy to patch if skribbl.io changes its markup. Hint-reading
+// also has a heuristic fallback (see findHintContainerHeuristically)
+// that self-discovers the hint row by shape rather than class name, so
+// a skribbl.io markup change degrades to "still works" instead of
+// "stuck on Waiting for a round..." until someone patches a selector.
 
 (function (root) {
   "use strict";
@@ -19,28 +23,91 @@
     return document.querySelector(SELECTORS.gameWord);
   }
 
+  /**
+   * A node "looks like" a single hint character if it has no element
+   * children and its own text is at most one character (a letter or
+   * "_"). This is the heuristic used to self-discover the hint row
+   * without depending on skribbl.io's current class names.
+   */
+  function looksLikeHintChar(el) {
+    if (el.children.length !== 0) return false;
+    const text = (el.textContent || "").trim();
+    return text.length <= 1;
+  }
+
+  /**
+   * Finds the container element whose direct children mostly look like
+   * hint characters, searching under `root` (default: the whole
+   * document). Falls back to null if nothing scores at least 3 blanks
+   * worth of confidence, since a container with only 1-2 candidate
+   * children is too likely to be a false positive elsewhere on the page.
+   */
+  function findHintContainerHeuristically(root) {
+    root = root || document.body;
+    let best = null;
+    let bestScore = 0;
+    const candidates = root.querySelectorAll("*");
+    for (const el of candidates) {
+      if (el.children.length < 3) continue;
+      let score = 0;
+      for (const child of el.children) {
+        if (looksLikeHintChar(child)) score++;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        best = el;
+      }
+    }
+    return bestScore >= 3 ? best : null;
+  }
+
   function getHintCharEls() {
-    // All blank/revealed letters live flat inside a single
-    // "#game-word .hints .container" (skribbl.io does NOT split
-    // multi-word answers into separate containers - a word boundary
-    // is instead one extra un-lettered ".hint" element for the space).
-    // A sibling ".word-length" badge in the same container must be
-    // excluded. Note: ".word" holds the actual answer (visible only
-    // to the current drawer) and must never be used for guessers.
-    return Array.from(document.querySelectorAll(SELECTORS.hintChars));
+    // Primary path: skribbl.io's known markup has all blank/revealed
+    // letters flat inside a single "#game-word .hints .container"
+    // (multi-word answers do NOT get separate containers - a word
+    // boundary is one extra un-lettered ".hint" element for the
+    // space). A sibling ".word-length" badge in the same container
+    // must be excluded, which the ".hint" class filter already does.
+    const primary = Array.from(document.querySelectorAll(SELECTORS.hintChars));
+    if (primary.length > 0) return primary;
+
+    // Fallback: skribbl.io's markup changed (class names renamed or
+    // restructured) and the hardcoded selector no longer matches.
+    // Self-discover the hint row by scoring candidate containers, then
+    // read straight from that container's matching children instead of
+    // depending on any specific class name.
+    const gameWord = getGameWordEl();
+    const container = findHintContainerHeuristically(gameWord || document.body);
+    if (!container) return [];
+    return Array.from(container.children).filter(looksLikeHintChar);
   }
 
   /**
    * Reads the per-word letter-count split from the ".word-length"
    * badge, e.g. "9 4" for a two-word answer. Returns null if absent
    * or unparseable.
+   *
+   * Falls back to extracting digit runs from the hints container's raw
+   * text if the dedicated selector doesn't match (markup changed): the
+   * badge's digits are the only digits skribbl.io renders in that
+   * area, so stripping non-digit-run tokens out of the full text finds
+   * the same numbers without depending on the ".word-length" class.
    */
   function getWordLengthSplit() {
     const el = document.querySelector(SELECTORS.wordLength);
-    if (!el) return null;
-    const text = (el.textContent || "").trim();
-    if (!text) return null;
-    const parts = text.split(/\s+/).map((n) => parseInt(n, 10));
+    if (el) {
+      const text = (el.textContent || "").trim();
+      if (text) {
+        const parts = text.split(/\s+/).map((n) => parseInt(n, 10));
+        if (!parts.some((n) => !Number.isFinite(n) || n <= 0)) return parts;
+      }
+    }
+
+    const hintsEl = document.querySelector("#game-word .hints");
+    if (!hintsEl) return null;
+    const digitMatches = (hintsEl.textContent || "").match(/\d+/g);
+    if (!digitMatches || digitMatches.length === 0) return null;
+    const parts = digitMatches.map((n) => parseInt(n, 10));
     if (parts.some((n) => !Number.isFinite(n) || n <= 0)) return null;
     return parts;
   }
