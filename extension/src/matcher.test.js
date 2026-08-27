@@ -1,5 +1,11 @@
 const assert = require("assert");
-const { parseHintPattern, wordMatchesPattern, findCandidates } = require("./matcher.js");
+const {
+  parseHintPattern,
+  wordMatchesPattern,
+  findCandidates,
+  findCandidatesDetailed,
+  computeConfidence,
+} = require("./matcher.js");
 
 function test(name, fn) {
   try {
@@ -169,4 +175,49 @@ test("findCandidates: excludeWords accepts a plain array too", () => {
   const words = entries(["cat", "car"]);
   const results = findCandidates(words, "c a _", null, 10, ["cat"]);
   assert.deepStrictEqual(results, ["car"]);
+});
+
+test("findCandidatesDetailed: returns word+weight objects, sorted", () => {
+  const words = [
+    { word: "cat", weight: 10 },
+    { word: "car", weight: 50 },
+  ];
+  const results = findCandidatesDetailed(words, "c a _", null, 10);
+  assert.deepStrictEqual(results, [
+    { word: "car", weight: 50 },
+    { word: "cat", weight: 10 },
+  ]);
+});
+
+test("computeConfidence: no candidates is 0", () => {
+  assert.strictEqual(computeConfidence([]), 0);
+  assert.strictEqual(computeConfidence(null), 0);
+});
+
+test("computeConfidence: single candidate is fully confident", () => {
+  assert.strictEqual(computeConfidence([{ word: "cat", weight: 5 }]), 1);
+});
+
+test("computeConfidence: tied top two candidates is 0 confidence", () => {
+  const ranked = [
+    { word: "cat", weight: 10 },
+    { word: "car", weight: 10 },
+  ];
+  assert.strictEqual(computeConfidence(ranked), 0);
+});
+
+test("computeConfidence: large gap between top two is high confidence", () => {
+  const ranked = [
+    { word: "cat", weight: 100 },
+    { word: "car", weight: 5 },
+  ];
+  assert.ok(computeConfidence(ranked) > 0.9);
+});
+
+test("computeConfidence: top weight of 0 or less is 0 confidence", () => {
+  const ranked = [
+    { word: "cat", weight: 0 },
+    { word: "car", weight: 0 },
+  ];
+  assert.strictEqual(computeConfidence(ranked), 0);
 });

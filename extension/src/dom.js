@@ -148,6 +148,25 @@
     return document.querySelector(SELECTORS.chatInput);
   }
 
+  /**
+   * Returns true if the current player appears to be the one drawing
+   * (not guessing). skribbl.io reveals the actual answer in
+   * "#game-word .word" only to the drawer - it's empty/hidden for
+   * guessers (confirmed via live inspection). If that element is
+   * visible and has real letter content, we're drawing and should
+   * suppress guess suggestions rather than show irrelevant/confusing
+   * ones. Falls back to false (assume guessing) if undetectable, so
+   * an unexpected page state never silently disables the extension.
+   */
+  function isCurrentPlayerDrawing() {
+    const wordEl = document.querySelector("#game-word .word");
+    if (!wordEl) return false;
+    const style = window.getComputedStyle(wordEl);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+    const text = (wordEl.textContent || "").trim();
+    return /^[a-zA-Z][a-zA-Z\s-]*$/.test(text);
+  }
+
   function getChatContentEl() {
     return document.querySelector(SELECTORS.chatContent);
   }
@@ -306,6 +325,7 @@
     getChatContentEl,
     readHintText,
     readNewlyRevealedWords,
+    isCurrentPlayerDrawing,
     fillChatInput,
     submitGuess,
     watchGameState,

@@ -115,7 +115,69 @@
     return matches.slice(0, limit).map((m) => m.word);
   }
 
-  const api = { WORD_BREAK, parseHintPattern, wordMatchesPattern, findCandidates };
+  /**
+   * Same matching/ranking as findCandidates, but returns the full
+   * {word, weight} objects (not just word strings) so callers can
+   * compute confidence or display scores.
+   *
+   * @returns {Array<{word: string, weight: number}>}
+   */
+  function findCandidatesDetailed(entries, hintText, excludedLetters, limit, excludeWords) {
+    limit = limit || 10;
+    const pattern = parseHintPattern(hintText);
+    if (!pattern) return [];
+    const excluded =
+      excludedLetters instanceof Set
+        ? excludedLetters
+        : new Set(excludedLetters || []);
+    const excludedWordSet =
+      excludeWords instanceof Set ? excludeWords : new Set(excludeWords || []);
+
+    const matches = [];
+    for (const entry of entries) {
+      const word = entry.word.toLowerCase();
+      const normalized = word.replace(/\s+/g, " ").trim();
+      if (excludedWordSet.has(normalized)) continue;
+      if (wordMatchesPattern(normalized, pattern, excluded)) {
+        matches.push({ word: normalized, weight: entry.weight || 0 });
+      }
+    }
+    matches.sort((a, b) => b.weight - a.weight);
+    return matches.slice(0, limit);
+  }
+
+  /**
+   * Computes a 0-1 confidence score for the top candidate in a ranked
+   * list, based on how far ahead its weight is from the runner-up's
+   * (a bigger relative gap means the top pick is a much stronger match,
+   * e.g. it's the only word with a "picked" count, or has been
+   * confirmed by learning many times over). A single candidate (no
+   * runner-up) is treated as fully confident.
+   *
+   * @param {Array<{word: string, weight: number}>} ranked - output of
+   *   findCandidatesDetailed, already sorted by weight descending.
+   * @returns {number} 0 (no confidence / no candidates) to 1 (certain).
+   */
+  function computeConfidence(ranked) {
+    if (!ranked || ranked.length === 0) return 0;
+    if (ranked.length === 1) return 1;
+    const top = ranked[0].weight;
+    const second = ranked[1].weight;
+    if (top <= 0) return 0;
+    // Relative gap: 0 when tied, approaching 1 as the runner-up's
+    // weight shrinks toward 0 relative to the top pick.
+    const gap = (top - second) / top;
+    return Math.max(0, Math.min(1, gap));
+  }
+
+  const api = {
+    WORD_BREAK,
+    parseHintPattern,
+    wordMatchesPattern,
+    findCandidates,
+    findCandidatesDetailed,
+    computeConfidence,
+  };
 
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
