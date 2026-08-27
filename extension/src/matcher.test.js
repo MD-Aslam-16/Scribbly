@@ -92,13 +92,6 @@ test("findCandidates: respects limit after sorting", () => {
   assert.strictEqual(results.length, 2);
 });
 
-test("findCandidates: multi-word phrases match on compact length", () => {
-  const words = entries(["six pack"]);
-  const hint = "_ _ _ _ _ _ _";
-  const results = findCandidates(words, hint, null, 10);
-  assert.deepStrictEqual(results, ["six pack"]);
-});
-
 test("findCandidates: no hint returns empty", () => {
   assert.deepStrictEqual(findCandidates(entries(["cat"]), "", null, 10), []);
 });
@@ -111,4 +104,53 @@ test("findCandidates: matches against contiguous (no-space) hint", () => {
   ];
   const results = findCandidates(words, "___g_", null, 10);
   assert.deepStrictEqual(results, ["dough", "tough"]);
+});
+
+test("parseHintPattern: double space marks a word boundary", () => {
+  // "e" then word break then "ice" (3 blanks)
+  assert.deepStrictEqual(parseHintPattern("_ _ e  _ _ _"), [
+    null,
+    null,
+    "e",
+    " ",
+    null,
+    null,
+    null,
+  ]);
+});
+
+test("findCandidates: single-word hint does NOT match a multi-word candidate", () => {
+  const words = entries(["six pack"]); // compact length 7
+  const hint = "_______"; // 7 blanks, single word, no space marker
+  const results = findCandidates(words, hint, null, 10);
+  assert.deepStrictEqual(results, []);
+});
+
+test("findCandidates: multi-word hint matches a multi-word candidate with the same word lengths", () => {
+  const words = entries(["six pack", "sixpack"]);
+  // "six" (3) + break + "pack" (4)
+  const hint = "___  ____";
+  const results = findCandidates(words, hint, null, 10);
+  assert.deepStrictEqual(results, ["six pack"]);
+});
+
+test("findCandidates: multi-word hint does NOT match a single-word candidate of the same total length", () => {
+  const words = entries(["sevenup"]); // 7 letters, no space
+  const hint = "___  ___"; // 3 + break + 3 = 7 chars but has a word break
+  const results = findCandidates(words, hint, null, 10);
+  assert.deepStrictEqual(results, []);
+});
+
+test("findCandidates: multi-word hint requires word break at the same position", () => {
+  const words = entries(["ice cream"]); // 3 + break + 5
+  const wrongSplitHint = "____  ____"; // 4 + break + 4, wrong split
+  assert.deepStrictEqual(
+    findCandidates(words, wrongSplitHint, null, 10),
+    []
+  );
+  const rightSplitHint = "___  _____"; // 3 + break + 5, correct split
+  assert.deepStrictEqual(
+    findCandidates(words, rightSplitHint, null, 10),
+    ["ice cream"]
+  );
 });

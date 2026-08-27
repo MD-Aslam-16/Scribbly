@@ -7,6 +7,7 @@
 
   const SELECTORS = {
     gameWord: "#game-word",
+    hintContainers: "#game-word .hints .container",
     hintChars: "#game-word .hints .container .hint",
     chatInput: "#game-chat .chat-form input",
     chatForm: "#game-chat .chat-form",
@@ -24,6 +25,21 @@
     // holds the actual answer (visible only to the current drawer) and
     // must never be used to build guesses for guessers.
     return Array.from(document.querySelectorAll(SELECTORS.hintChars));
+  }
+
+  /**
+   * Returns each word's blank/letter groups separately: an array of
+   * arrays, one per "#game-word .hints .container" (skribbl.io renders
+   * one container per word of a multi-word answer, with visible spacing
+   * between containers marking the word break).
+   */
+  function getHintWordGroups() {
+    const containers = Array.from(
+      document.querySelectorAll(SELECTORS.hintContainers)
+    );
+    return containers.map((container) =>
+      Array.from(container.querySelectorAll(".hint"))
+    );
   }
 
   function getChatInputEl() {
@@ -68,21 +84,28 @@
   }
 
   /**
-   * Reads the current hint text from the page, e.g. "_ _ _ e _".
-   * Returns null if the hint area isn't present or looks like a
-   * non-hint state (e.g. "WAITING").
+   * Reads the current hint text from the page, preserving word
+   * boundaries: letters/blanks within a word are single-space
+   * separated, and words are separated by a double space, e.g.
+   * "_ _ e   i c e" for a two-word "___ ice" style hint. Returns null
+   * if the hint area isn't present or looks like a non-hint state.
    */
   function readHintText() {
-    const hintEls = getHintCharEls();
-    if (!hintEls.length) return null;
+    const groups = getHintWordGroups();
+    if (!groups.length) return null;
 
-    const chars = hintEls.map((el) => (el.textContent || "").trim());
-    // Each element should be a single letter or "_"; anything else
-    // (e.g. a stray badge caught by the selector) means the markup
-    // doesn't match what we expect, so bail out rather than guess.
-    if (chars.some((c) => c.length !== 1)) return null;
+    const words = [];
+    for (const hintEls of groups) {
+      if (!hintEls.length) return null;
+      const chars = hintEls.map((el) => (el.textContent || "").trim());
+      // Each element should be a single letter or "_"; anything else
+      // (e.g. a stray badge caught by the selector) means the markup
+      // doesn't match what we expect, so bail out rather than guess.
+      if (chars.some((c) => c.length !== 1)) return null;
+      words.push(chars.join(" "));
+    }
 
-    const text = chars.join(" ");
+    const text = words.join("  "); // double space marks a word boundary
     if (!/[_-]/.test(text)) return null; // no blanks -> not a guessable hint yet
     return text;
   }
