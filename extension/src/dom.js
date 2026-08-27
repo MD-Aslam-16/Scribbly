@@ -7,8 +7,9 @@
 
   const SELECTORS = {
     gameWord: "#game-word",
-    hintContainers: "#game-word .hints .container",
+    hintContainer: "#game-word .hints .container",
     hintChars: "#game-word .hints .container .hint",
+    wordLength: "#game-word .hints .container .word-length",
     chatInput: "#game-chat .chat-form input",
     chatForm: "#game-chat .chat-form",
     chatContent: "#game-chat .chat-content",
@@ -19,27 +20,61 @@
   }
 
   function getHintCharEls() {
-    // Each blank/revealed letter is its own ".hint" element inside
-    // "#game-word .hints .container". A sibling ".word-length" badge
-    // lives in the same container and must be excluded. Note: ".word"
-    // holds the actual answer (visible only to the current drawer) and
-    // must never be used to build guesses for guessers.
+    // All blank/revealed letters live flat inside a single
+    // "#game-word .hints .container" (skribbl.io does NOT split
+    // multi-word answers into separate containers - a word boundary
+    // is instead one extra un-lettered ".hint" element for the space).
+    // A sibling ".word-length" badge in the same container must be
+    // excluded. Note: ".word" holds the actual answer (visible only
+    // to the current drawer) and must never be used for guessers.
     return Array.from(document.querySelectorAll(SELECTORS.hintChars));
   }
 
   /**
-   * Returns each word's blank/letter groups separately: an array of
-   * arrays, one per "#game-word .hints .container" (skribbl.io renders
-   * one container per word of a multi-word answer, with visible spacing
-   * between containers marking the word break).
+   * Reads the per-word letter-count split from the ".word-length"
+   * badge, e.g. "9 4" for a two-word answer. Returns null if absent
+   * or unparseable.
+   */
+  function getWordLengthSplit() {
+    const el = document.querySelector(SELECTORS.wordLength);
+    if (!el) return null;
+    const text = (el.textContent || "").trim();
+    if (!text) return null;
+    const parts = text.split(/\s+/).map((n) => parseInt(n, 10));
+    if (parts.some((n) => !Number.isFinite(n) || n <= 0)) return null;
+    return parts;
+  }
+
+  /**
+   * Splits the flat list of ".hint" elements into per-word groups
+   * using the authoritative lengths from the ".word-length" badge.
+   * A single extra element between word groups (the space) is
+   * dropped rather than assigned to either group.
+   *
+   * Falls back to treating everything as one word if the badge is
+   * missing/unparseable or the element count doesn't add up (letters
+   * + one space per boundary), so a markup change degrades gracefully
+   * instead of hard-failing on ordinary single-word hints.
    */
   function getHintWordGroups() {
-    const containers = Array.from(
-      document.querySelectorAll(SELECTORS.hintContainers)
-    );
-    return containers.map((container) =>
-      Array.from(container.querySelectorAll(".hint"))
-    );
+    const hintEls = getHintCharEls();
+    if (!hintEls.length) return [];
+
+    const split = getWordLengthSplit();
+    if (!split || split.length < 2) return [hintEls];
+
+    const expectedTotal =
+      split.reduce((sum, n) => sum + n, 0) + (split.length - 1);
+    if (hintEls.length !== expectedTotal) return [hintEls];
+
+    const groups = [];
+    let i = 0;
+    split.forEach((len, idx) => {
+      groups.push(hintEls.slice(i, i + len));
+      i += len;
+      if (idx < split.length - 1) i += 1; // skip the space element
+    });
+    return groups;
   }
 
   function getChatInputEl() {
