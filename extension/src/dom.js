@@ -17,6 +17,13 @@
     return document.querySelector(SELECTORS.gameWord);
   }
 
+  function getHintWordEl() {
+    // The ".word" element holds just the blank/letter pattern; the
+    // parent "#game-word" also contains "GUESS THIS" and a length
+    // badge, which would corrupt a naive textContent read.
+    return document.querySelector("#game-word .word");
+  }
+
   function getChatInputEl() {
     return document.querySelector(SELECTORS.chatInput);
   }
@@ -31,12 +38,18 @@
    * non-hint state (e.g. "WAITING").
    */
   function readHintText() {
-    const el = getGameWordEl();
+    // Prefer the dedicated ".word" element; fall back to the parent
+    // container (older/alternate markup) if it's not present.
+    const el = getHintWordEl() || getGameWordEl();
     if (!el) return null;
-    const text = (el.textContent || "").trim();
+    let text = (el.textContent || "").trim();
     if (!text) return null;
-    // Only underscores/letters/spaces/dashes are a real hint pattern.
-    if (!/^[_a-zA-Z\s-]+$/.test(text)) return null;
+    // The element can carry a trailing length badge (e.g. a superscript
+    // "5") and other stray characters; strip anything that isn't a
+    // letter, underscore, dash, or whitespace before validating.
+    text = text.replace(/[^a-zA-Z_\-\s]/g, "");
+    text = text.replace(/\s+/g, " ").trim();
+    if (!text) return null;
     if (!/[_-]/.test(text)) return null; // no blanks -> not a guessable hint yet
     return text;
   }

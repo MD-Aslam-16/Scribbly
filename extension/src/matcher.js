@@ -12,10 +12,18 @@
    */
   function parseHintPattern(hintText) {
     if (!hintText) return null;
-    const tokens = hintText
-      .trim()
-      .split(/\s+/)
-      .filter((t) => t.length > 0);
+    const trimmed = hintText.trim();
+    if (!trimmed) return null;
+
+    // skribbl.io renders each blank/letter as its own element with CSS
+    // spacing between them; textContent concatenation does NOT preserve
+    // that as literal whitespace, so the hint usually arrives as one
+    // contiguous run like "___g_" rather than "_ _ _ g _". Support both:
+    // if the string contains whitespace, treat it as already tokenized;
+    // otherwise split every character into its own token.
+    const tokens = /\s/.test(trimmed)
+      ? trimmed.split(/\s+/).filter((t) => t.length > 0)
+      : trimmed.split("");
     if (tokens.length === 0) return null;
 
     const pattern = tokens.map((tok) => {

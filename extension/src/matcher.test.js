@@ -87,3 +87,19 @@ test("findCandidates: multi-word phrases match on compact length", () => {
 test("findCandidates: no hint returns empty", () => {
   assert.deepStrictEqual(findCandidates(["cat"], "", null, 10), []);
 });
+
+test("parseHintPattern: contiguous string (no spaces) as skribbl actually renders it", () => {
+  assert.deepStrictEqual(parseHintPattern("___g_"), [
+    null,
+    null,
+    null,
+    "g",
+    null,
+  ]);
+});
+
+test("findCandidates: matches against contiguous (no-space) hint", () => {
+  const words = ["dough", "tough", "cat"];
+  const results = findCandidates(words, "___g_", null, 10);
+  assert.deepStrictEqual(results, ["dough", "tough"]);
+});
