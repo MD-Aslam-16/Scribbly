@@ -7,7 +7,7 @@
 
   const SELECTORS = {
     gameWord: "#game-word",
-    hintText: "#game-word .word, #game-word .hints .container",
+    hintChars: "#game-word .hints .container .hint",
     chatInput: "#game-chat .chat-form input",
     chatForm: "#game-chat .chat-form",
     chatContent: "#game-chat .chat-content",
@@ -17,11 +17,13 @@
     return document.querySelector(SELECTORS.gameWord);
   }
 
-  function getHintWordEl() {
-    // The ".word" element holds just the blank/letter pattern; the
-    // parent "#game-word" also contains "GUESS THIS" and a length
-    // badge, which would corrupt a naive textContent read.
-    return document.querySelector("#game-word .word");
+  function getHintCharEls() {
+    // Each blank/revealed letter is its own ".hint" element inside
+    // "#game-word .hints .container". A sibling ".word-length" badge
+    // lives in the same container and must be excluded. Note: ".word"
+    // holds the actual answer (visible only to the current drawer) and
+    // must never be used to build guesses for guessers.
+    return Array.from(document.querySelectorAll(SELECTORS.hintChars));
   }
 
   function getChatInputEl() {
@@ -38,18 +40,16 @@
    * non-hint state (e.g. "WAITING").
    */
   function readHintText() {
-    // Prefer the dedicated ".word" element; fall back to the parent
-    // container (older/alternate markup) if it's not present.
-    const el = getHintWordEl() || getGameWordEl();
-    if (!el) return null;
-    let text = (el.textContent || "").trim();
-    if (!text) return null;
-    // The element can carry a trailing length badge (e.g. a superscript
-    // "5") and other stray characters; strip anything that isn't a
-    // letter, underscore, dash, or whitespace before validating.
-    text = text.replace(/[^a-zA-Z_\-\s]/g, "");
-    text = text.replace(/\s+/g, " ").trim();
-    if (!text) return null;
+    const hintEls = getHintCharEls();
+    if (!hintEls.length) return null;
+
+    const chars = hintEls.map((el) => (el.textContent || "").trim());
+    // Each element should be a single letter or "_"; anything else
+    // (e.g. a stray badge caught by the selector) means the markup
+    // doesn't match what we expect, so bail out rather than guess.
+    if (chars.some((c) => c.length !== 1)) return null;
+
+    const text = chars.join(" ");
     if (!/[_-]/.test(text)) return null; // no blanks -> not a guessable hint yet
     return text;
   }
