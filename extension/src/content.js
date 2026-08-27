@@ -29,7 +29,7 @@
   }
 
   function handlePick(word) {
-    window.SkribblDom.fillChatInput(word);
+    window.SkribblDom.submitGuess(word);
   }
 
   function refresh() {

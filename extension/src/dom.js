@@ -167,6 +167,42 @@
   }
 
   /**
+   * Fills the chat input with `word` and submits it immediately, the
+   * same as the user typing it and pressing Enter.
+   */
+  function submitGuess(word) {
+    if (!fillChatInput(word)) return false;
+
+    const form = document.querySelector(SELECTORS.chatForm);
+    if (form && typeof form.requestSubmit === "function") {
+      form.requestSubmit();
+      return true;
+    }
+    if (form) {
+      form.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true })
+      );
+      return true;
+    }
+
+    // Fallback: simulate pressing Enter on the input itself.
+    const input = getChatInputEl();
+    if (!input) return false;
+    for (const type of ["keydown", "keypress", "keyup"]) {
+      input.dispatchEvent(
+        new KeyboardEvent(type, {
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          which: 13,
+          bubbles: true,
+        })
+      );
+    }
+    return true;
+  }
+
+  /**
    * Watches for changes to the hint area and/or chat feed, calling
    * `onChange()` whenever either mutates. Returns a stop() function.
    */
@@ -204,6 +240,7 @@
     readHintText,
     readNewlyRevealedWords,
     fillChatInput,
+    submitGuess,
     watchGameState,
   };
 })(typeof window !== "undefined" ? window : globalThis);
