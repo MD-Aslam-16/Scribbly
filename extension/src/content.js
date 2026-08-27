@@ -1,21 +1,35 @@
-// Entry point: wires DOM watching, word matching, and the overlay UI
-// together.
+// Entry point: wires DOM watching, weighted word matching, the
+// learning module, and the overlay UI together.
 
 (function () {
   "use strict";
 
   const wordData = window.__SKRIBBL_GUESSER_WORDS__ || { skribbl: [], common: [] };
-  // Skribbl-specific words rank first (most likely to be the actual
-  // answer), common English words fill in as a fallback.
-  const combinedWords = wordData.skribbl.concat(wordData.common);
 
+  let weightedEntries = [];
   let lastHintText = null;
+
+  function rebuildEntries(learnedCounts) {
+    weightedEntries = window.SkribblLearning.buildWeightedEntries(
+      wordData.skribbl,
+      wordData.common,
+      learnedCounts
+    );
+  }
 
   function handlePick(word) {
     window.SkribblDom.fillChatInput(word);
   }
 
   function refresh() {
+    // Pick up any newly revealed answers from chat and learn from them.
+    const revealed = window.SkribblDom.readNewlyRevealedWords();
+    if (revealed.length > 0) {
+      Promise.all(revealed.map((w) => window.SkribblLearning.recordWordSeen(w))).then(
+        () => window.SkribblLearning.loadLearnedCounts().then(rebuildEntries)
+      );
+    }
+
     const hintText = window.SkribblDom.readHintText();
 
     if (!hintText) {
@@ -28,7 +42,7 @@
     lastHintText = hintText;
 
     const candidates = window.SkribblMatcher.findCandidates(
-      combinedWords,
+      weightedEntries,
       hintText,
       null,
       10
@@ -38,10 +52,14 @@
 
   function init() {
     window.SkribblOverlay.ensureOverlay(handlePick);
+    window.SkribblLearning.loadLearnedCounts().then((counts) => {
+      rebuildEntries(counts);
+      refresh();
+    });
     window.SkribblDom.watchGameState(refresh);
-    refresh();
     // Fallback poll in case mutation targets aren't attached yet
-    // (page structure not fully rendered at injection time).
+    // (page structure not fully rendered at injection time), and to
+    // catch new chat lines promptly for learning.
     setInterval(refresh, 1500);
   }
 

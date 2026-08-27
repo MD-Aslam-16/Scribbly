@@ -34,6 +34,39 @@
     return document.querySelector(SELECTORS.chatContent);
   }
 
+  // Tracks how many chat lines we've already scanned for revealed
+  // words, so repeated calls only report newly-added lines.
+  let lastChatLineCount = 0;
+
+  /**
+   * Scans any chat lines added since the last call for a revealed
+   * answer, e.g. "The word was 'penny'". Resets automatically if the
+   * chat is shorter than last seen (room change/reload).
+   *
+   * @returns {string[]} newly revealed words (lowercase), if any.
+   */
+  function readNewlyRevealedWords() {
+    const chatEl = getChatContentEl();
+    if (!chatEl) return [];
+
+    const lines = Array.from(chatEl.children).map((el) =>
+      (el.textContent || "").trim()
+    );
+    if (lines.length < lastChatLineCount) {
+      lastChatLineCount = 0; // chat was cleared/replaced
+    }
+    const newLines = lines.slice(lastChatLineCount);
+    lastChatLineCount = lines.length;
+
+    const revealed = [];
+    const wordWasRe = /the word was ['"]([a-zA-Z][a-zA-Z\s-]*)['"]/i;
+    for (const line of newLines) {
+      const match = line.match(wordWasRe);
+      if (match) revealed.push(match[1].trim().toLowerCase());
+    }
+    return revealed;
+  }
+
   /**
    * Reads the current hint text from the page, e.g. "_ _ _ e _".
    * Returns null if the hint area isn't present or looks like a
@@ -111,6 +144,7 @@
     getChatInputEl,
     getChatContentEl,
     readHintText,
+    readNewlyRevealedWords,
     fillChatInput,
     watchGameState,
   };

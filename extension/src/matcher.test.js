@@ -12,6 +12,10 @@ function test(name, fn) {
   }
 }
 
+function entries(words, weight) {
+  return words.map((word) => ({ word, weight: weight || 1 }));
+}
+
 test("parseHintPattern: all blanks", () => {
   assert.deepStrictEqual(parseHintPattern("_ _ _"), [null, null, null]);
 });
@@ -31,6 +35,16 @@ test("parseHintPattern: empty input", () => {
   assert.strictEqual(parseHintPattern(null), null);
 });
 
+test("parseHintPattern: contiguous string (no spaces) as skribbl actually renders it", () => {
+  assert.deepStrictEqual(parseHintPattern("___g_"), [
+    null,
+    null,
+    null,
+    "g",
+    null,
+  ]);
+});
+
 test("wordMatchesPattern: length mismatch", () => {
   assert.strictEqual(wordMatchesPattern("cat", [null, null], null), false);
 });
@@ -47,8 +61,6 @@ test("wordMatchesPattern: known letters must match", () => {
 });
 
 test("wordMatchesPattern: excluded letter matching a blank position fails", () => {
-  // pattern's blank is index 1 ('p' in "apple"); excluding 'p' should
-  // reject the word even though 'p' also appears at a known position.
   const excluded = new Set(["p"]);
   assert.strictEqual(
     wordMatchesPattern("apple", ["a", null, "p", "l", "e"], excluded),
@@ -64,42 +76,39 @@ test("wordMatchesPattern: excluded letter only checked at blank positions", () =
   );
 });
 
-test("findCandidates: filters and ranks by list order", () => {
-  const words = ["apple", "angle", "ample", "zzz"];
-  const results = findCandidates(words, "a _ p l e", null, 10);
-  assert.deepStrictEqual(results, ["apple", "ample"]);
+test("findCandidates: sorts by weight descending", () => {
+  const words = [
+    { word: "apple", weight: 5 },
+    { word: "angle", weight: 10 },
+    { word: "ample", weight: 1 },
+  ];
+  const results = findCandidates(words, "a _ _ l e", null, 10);
+  assert.deepStrictEqual(results, ["angle", "apple", "ample"]);
 });
 
-test("findCandidates: respects limit", () => {
-  const words = ["cat", "car", "can", "cap"];
+test("findCandidates: respects limit after sorting", () => {
+  const words = entries(["cat", "car", "can", "cap"]);
   const results = findCandidates(words, "c a _", null, 2);
   assert.strictEqual(results.length, 2);
 });
 
 test("findCandidates: multi-word phrases match on compact length", () => {
-  const words = ["six pack"];
-  // "six pack" compact = "sixpack" (7 letters); hint has 7 blanks
+  const words = entries(["six pack"]);
   const hint = "_ _ _ _ _ _ _";
   const results = findCandidates(words, hint, null, 10);
   assert.deepStrictEqual(results, ["six pack"]);
 });
 
 test("findCandidates: no hint returns empty", () => {
-  assert.deepStrictEqual(findCandidates(["cat"], "", null, 10), []);
-});
-
-test("parseHintPattern: contiguous string (no spaces) as skribbl actually renders it", () => {
-  assert.deepStrictEqual(parseHintPattern("___g_"), [
-    null,
-    null,
-    null,
-    "g",
-    null,
-  ]);
+  assert.deepStrictEqual(findCandidates(entries(["cat"]), "", null, 10), []);
 });
 
 test("findCandidates: matches against contiguous (no-space) hint", () => {
-  const words = ["dough", "tough", "cat"];
+  const words = [
+    { word: "dough", weight: 2 },
+    { word: "tough", weight: 1 },
+    { word: "cat", weight: 100 },
+  ];
   const results = findCandidates(words, "___g_", null, 10);
   assert.deepStrictEqual(results, ["dough", "tough"]);
 });

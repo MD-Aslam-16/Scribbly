@@ -1,6 +1,7 @@
-// Word matching logic: filters a word list against a hint pattern.
-// Exposed as window.SkribblMatcher so it can be used from the content
-// script and also required directly in Node for unit tests.
+// Word matching logic: filters a weighted word list against a hint
+// pattern and ranks matches by weight. Exposed as window.SkribblMatcher
+// so it can be used from the content script and also required directly
+// in Node for unit tests.
 
 (function (root) {
   "use strict";
@@ -54,17 +55,18 @@
   }
 
   /**
-   * Finds candidate words matching the hint pattern.
+   * Finds candidate words matching the hint pattern, ranked by weight
+   * (highest first).
    *
-   * @param {string[]} words - flat lowercase word list, priority-ordered
-   *   (earlier entries rank higher when frequency is otherwise equal).
+   * @param {Array<{word: string, weight: number}>} entries - word list
+   *   with per-word ranking weight. Higher weight = shown first.
    * @param {string} hintText - raw hint string from the page.
    * @param {Set<string>|string[]} [excludedLetters] - letters known NOT
    *   to be in the word (e.g. from wrong guesses), only applied to blanks.
    * @param {number} [limit=10] - max results to return.
    * @returns {string[]} candidate words, best guesses first.
    */
-  function findCandidates(words, hintText, excludedLetters, limit) {
+  function findCandidates(entries, hintText, excludedLetters, limit) {
     limit = limit || 10;
     const pattern = parseHintPattern(hintText);
     if (!pattern) return [];
@@ -73,19 +75,19 @@
         ? excludedLetters
         : new Set(excludedLetters || []);
 
-    const results = [];
-    for (const raw of words) {
-      const word = raw.toLowerCase();
+    const matches = [];
+    for (const entry of entries) {
+      const word = entry.word.toLowerCase();
       // Multi-word phrases ("six pack") collapse spaces for length/letter
       // matching against skribbl's hint, which blanks every letter but
       // keeps spaces visible as gaps.
       const compact = word.replace(/\s+/g, "");
       if (wordMatchesPattern(compact, pattern, excluded)) {
-        results.push(word);
-        if (results.length >= limit) break;
+        matches.push({ word, weight: entry.weight || 0 });
       }
     }
-    return results;
+    matches.sort((a, b) => b.weight - a.weight);
+    return matches.slice(0, limit).map((m) => m.word);
   }
 
   const api = { parseHintPattern, wordMatchesPattern, findCandidates };
