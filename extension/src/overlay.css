@@ -1,3 +1,12 @@
+#skribbl-guesser-overlay,
+#skribbl-guesser-overlay * {
+  /* Reset against skribbl.io's page styles (e.g. faded button text via
+     -webkit-text-fill-color / opacity) leaking into our elements. */
+  opacity: 1;
+  -webkit-text-fill-color: currentColor;
+  box-sizing: border-box;
+}
+
 #skribbl-guesser-overlay {
   position: fixed;
   top: 12px;
@@ -61,6 +70,10 @@
   border-radius: 4px;
   cursor: pointer;
   font-size: 13px;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #1a2733;
+  opacity: 1;
+  -webkit-text-fill-color: #1a2733;
 }
 
 #skribbl-guesser-overlay .sg-word-btn:hover {
@@ -71,4 +84,6 @@
   background: #dcf3dc;
   border-color: #a7d9a7;
   font-weight: bold;
+  color: #1a2733;
+  -webkit-text-fill-color: #1a2733;
 }
