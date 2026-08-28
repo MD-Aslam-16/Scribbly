@@ -57,7 +57,7 @@
 
     const header = document.createElement("div");
     header.className = "sg-header";
-    header.innerHTML = `<span>Guess Helper</span>`;
+    header.innerHTML = `<span>Scribbly</span>`;
     const toggle = document.createElement("button");
     toggle.className = "sg-toggle";
     const collapsed = !!uiState.collapsed;

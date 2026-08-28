@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Skribbl Guess Helper",
+  "name": "Scribbly",
   "version": "1.1.0",
-  "description": "Suggests candidate words for skribbl.io based on the hint pattern and lets you fill the guess into chat.",
+  "description": "Scribbly suggests candidate words for skribbl.io based on the hint pattern and lets you fill the guess into chat.",
   "permissions": ["storage"],
   "host_permissions": ["https://skribbl.io/*"],
   "content_scripts": [
