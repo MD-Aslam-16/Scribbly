@@ -51,7 +51,3 @@ Run the unit tests (plain Node, no framework required):
 node extension/src/matcher.test.js
 node extension/src/learning.test.js
 ```
-
-## Word bank
-
-`extension/data/skribbl-words.json` is a merged word list from two open-source skribbl.io helper projects ([wlauyeung/Skribblio-Helper](https://github.com/wlauyeung/Skribblio-Helper) and [NitishGadangi/Skribbl-Helper](https://github.com/NitishGadangi/Skribbl-Helper)), each word annotated with a pick-frequency count used as its base ranking weight.
