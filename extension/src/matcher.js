@@ -115,7 +115,7 @@
    * @returns {Array<{word: string, weight: number}>}
    */
   function findCandidatesDetailed(entries, hintText, excludedLetters, limit, excludeWords, scoreFn) {
-    limit = limit || 10;
+    limit = limit == null ? 10 : limit;
     const pattern = parseHintPattern(hintText);
     if (!pattern) return [];
     const excluded =

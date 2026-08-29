@@ -245,3 +245,15 @@ test("findCandidates: still returns plain word strings with a scoreFn passed", (
   const result = findCandidates(list, "c a _", null, 10, null, () => 1);
   assert.deepStrictEqual(result, ["cat", "car"].filter((w) => w === "cat" || w === "car"));
 });
+
+test("findCandidatesDetailed: limit=0 explicitly returns no results (not the default 10)", () => {
+  const list = entries(["cat", "car"], 5);
+  const ranked = findCandidatesDetailed(list, "c a _", null, 0);
+  assert.strictEqual(ranked.length, 0);
+});
+
+test("findCandidates: limit=0 explicitly returns no results (not the default 10)", () => {
+  const list = entries(["cat", "car"], 5);
+  const result = findCandidates(list, "c a _", null, 0);
+  assert.strictEqual(result.length, 0);
+});

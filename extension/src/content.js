@@ -98,8 +98,10 @@
     }
 
     // Other players' wrong guesses, echoed in chat, are known-bad words
-    // for this round even if we never submitted them ourselves.
-    const wrongGuesses = window.SkribblDom.readOtherPlayersWrongGuesses();
+    // for this round even if we never submitted them ourselves. Pass
+    // this tick's just-revealed answer(s) so a correct guess that also
+    // gets echoed as a plain chat line is never misclassified as wrong.
+    const wrongGuesses = window.SkribblDom.readOtherPlayersWrongGuesses(revealed);
     for (const w of wrongGuesses) triedWords.add(w);
 
     const hintText = window.SkribblDom.readHintText();
@@ -117,22 +119,27 @@
     if (hintText === lastHintText && wrongGuesses.length === 0) return;
     lastHintText = hintText;
 
-    const ranked = window.SkribblMatcher.findCandidatesDetailed(
+    // Rank against a generously high cap so confidence is computed from
+    // the true runner-up, not an artifact of a small suggestionCount
+    // (e.g. suggestionCount=1 would otherwise always look "certain"
+    // since there'd be no second candidate to compare against).
+    const rankedAll = window.SkribblMatcher.findCandidatesDetailed(
       weightedEntries,
       hintText,
       null,
-      settings.suggestionCount,
+      Math.max(settings.suggestionCount, 50),
       triedWords,
       window.SkribblScoring.scoreWord
     );
+    const ranked = rankedAll.slice(0, settings.suggestionCount);
 
-    const confidence = window.SkribblMatcher.computeConfidence(ranked);
+    const confidence = window.SkribblMatcher.computeConfidence(rankedAll);
     const display = ranked.map((r, i) => ({
       word: r.word,
       weight: r.weight,
       // Only the top pick shows the real computed confidence; the rest
       // are shown relative to it so the bars still read as a ranking.
-      confidencePct: i === 0 ? confidence : confidence * (r.weight / (ranked[0].weight || 1)) * 0.8,
+      confidencePct: i === 0 ? confidence : confidence * (r.weight / (rankedAll[0].weight || 1)) * 0.8,
     }));
     window.SkribblOverlay.setCandidates(display);
 
@@ -140,10 +147,10 @@
     if (
       settings.autoSubmit &&
       withinGuessLimit &&
-      ranked.length > 0 &&
+      rankedAll.length > 0 &&
       confidence >= settings.confidenceThreshold
     ) {
-      const topWord = ranked[0].word;
+      const topWord = rankedAll[0].word;
       autoSubmitTimer = setTimeout(() => {
         autoSubmitTimer = null;
         submitGuess(topWord);

@@ -212,17 +212,28 @@
    * Scans chat lines added since the last call for plain guess attempts
    * typed by *other* players (single words/phrases with no system
    * formatting, not our own submitted guess). skribbl.io echoes other
-   * players' guesses as ordinary chat lines "<name>: <guess>"; a correct
-   * guess instead triggers a distinct system message (caught separately
-   * by readNewlyRevealedWords), so any plain guess line we see here can
-   * be assumed wrong and excluded from future suggestions this round.
+   * players' guesses as ordinary chat lines "<name>: <guess>". A correct
+   * guess is ALSO typically echoed as a plain chat line (before or
+   * alongside a separate system "correct!" message), so this cannot
+   * safely assume every such line is wrong - `knownCorrectWords` must be
+   * passed (the words readNewlyRevealedWords just confirmed this same
+   * tick) so a just-revealed correct answer is never excluded from its
+   * own round's suggestions.
    *
+   * @param {Set<string>|string[]} [knownCorrectWords] - words already
+   *   confirmed correct (e.g. this tick's revealed answer) that must
+   *   never be reported as a wrong guess even if echoed in chat.
    * @returns {string[]} lowercase words/phrases other players have
    *   already tried unsuccessfully.
    */
-  function readOtherPlayersWrongGuesses() {
+  function readOtherPlayersWrongGuesses(knownCorrectWords) {
     const chatEl = getChatContentEl();
     if (!chatEl) return [];
+
+    const correct =
+      knownCorrectWords instanceof Set
+        ? knownCorrectWords
+        : new Set(knownCorrectWords || []);
 
     const lines = Array.from(chatEl.children);
     if (lines.length < lastWrongGuessLineCount) {
@@ -238,10 +249,13 @@
     // that shape filters those out without depending on exact class names.
     const guessLineRe = /^[^:]{1,20}:\s*([a-zA-Z][a-zA-Z\s-]*)$/;
     for (const el of newLines) {
-      if (el.className && /system|announce|info/i.test(el.className)) continue;
+      if (el.className && /system|announce|info|correct/i.test(el.className)) continue;
       const text = (el.textContent || "").trim();
       const match = text.match(guessLineRe);
-      if (match) guesses.push(match[1].trim().toLowerCase());
+      if (!match) continue;
+      const word = match[1].trim().toLowerCase();
+      if (correct.has(word)) continue; // don't exclude the just-revealed answer
+      guesses.push(word);
     }
     return guesses;
   }

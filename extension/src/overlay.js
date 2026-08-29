@@ -218,8 +218,12 @@
       input.value = String(settings[key]);
       input.className = "sg-settings-number";
       input.addEventListener("change", () => {
-        const value = parseFloat(input.value);
-        if (!Number.isFinite(value)) return;
+        const parsed = parseFloat(input.value);
+        if (!Number.isFinite(parsed)) return;
+        // The min/max HTML attributes don't block a typed-in
+        // out-of-range value from firing "change", so clamp explicitly.
+        const value = Math.min(max, Math.max(min, parsed));
+        input.value = String(value);
         if (onSettingsChangeCallback) {
           onSettingsChangeCallback({ [key]: value });
         }
