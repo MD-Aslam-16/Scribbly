@@ -178,11 +178,11 @@
     // "always" mode skips the confidence check entirely and submits the
     // top candidate as soon as one exists; "confident" (default) only
     // submits when computeConfidence clears the threshold - except when
-    // the remaining candidate pool is small (<=5): at that point there
+    // the remaining candidate pool is small (<=10): at that point there
     // just aren't many words left it could be, so it's worth trying them
     // in order even without a strong confidence gap. Both modes still
     // respect the guess cap and submit delay below.
-    const SMALL_POOL_THRESHOLD = 5;
+    const SMALL_POOL_THRESHOLD = 10;
     const meetsConfidence =
       settings.autoPlayMode === "always" ||
       rankedAll.length <= SMALL_POOL_THRESHOLD ||
