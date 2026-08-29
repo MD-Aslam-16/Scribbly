@@ -16,6 +16,11 @@
   let triedWords = new Set();
   let guessesThisRound = 0;
   let autoSubmitTimer = null;
+  // Set whenever triedWords gains an entry (our own guess or another
+  // player's), so the next refresh() re-renders even if the hint text
+  // itself hasn't changed - otherwise a just-tried word stays visible
+  // in the suggestion list until the hint happens to change too.
+  let triedWordsDirty = false;
 
   function rebuildEntries() {
     weightedEntries = window.SkribblLearning.buildWeightedEntries(
@@ -39,6 +44,7 @@
 
   function submitGuess(word) {
     triedWords.add(word.toLowerCase());
+    triedWordsDirty = true;
     guessesThisRound += 1;
     window.SkribblDom.submitGuess(word);
   }
@@ -79,6 +85,7 @@
     if (window.SkribblDom.isCurrentPlayerDrawing()) {
       lastHintText = null;
       triedWords = new Set();
+      triedWordsDirty = false;
       guessesThisRound = 0;
       window.SkribblOverlay.setStatus("You're drawing — no suggestions.");
       return;
@@ -103,21 +110,25 @@
     // gets echoed as a plain chat line is never misclassified as wrong.
     const wrongGuesses = window.SkribblDom.readOtherPlayersWrongGuesses(revealed);
     for (const w of wrongGuesses) triedWords.add(w);
+    if (wrongGuesses.length > 0) triedWordsDirty = true;
 
     const hintText = window.SkribblDom.readHintText();
 
     if (!hintText) {
       lastHintText = null;
       triedWords = new Set(); // between rounds, clear what we've tried
+      triedWordsDirty = false;
       guessesThisRound = 0;
       window.SkribblOverlay.setStatus("Waiting for a round…");
       return;
     }
 
     // Skip re-render only if nothing changed: same hint AND no newly
-    // excluded words from other players' wrong guesses this tick.
-    if (hintText === lastHintText && wrongGuesses.length === 0) return;
+    // excluded words (our own tried guesses or other players' wrong
+    // guesses) since the last render.
+    if (hintText === lastHintText && !triedWordsDirty) return;
     lastHintText = hintText;
+    triedWordsDirty = false;
 
     // Rank against a generously high cap so confidence is computed from
     // the true runner-up, not an artifact of a small suggestionCount
