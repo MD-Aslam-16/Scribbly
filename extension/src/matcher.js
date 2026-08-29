@@ -86,33 +86,23 @@
    *   to be in the word (e.g. from wrong guesses), only applied to blanks.
    * @param {number} [limit=10] - max results to return.
    * @param {Set<string>|string[]} [excludeWords] - exact words to leave
-   *   out entirely (e.g. already submitted as a wrong guess this round).
+   *   out entirely (e.g. already submitted as a wrong guess this round,
+   *   or guessed wrong by another player in chat).
+   * @param {(word: string) => number} [scoreFn] - optional plausibility
+   *   scorer (0-1) used as a small tiebreaker blended into ranking, e.g.
+   *   bigram English-likelihood. Does not override weight-based order
+   *   for words with meaningfully different weights.
    * @returns {string[]} candidate words, best guesses first.
    */
-  function findCandidates(entries, hintText, excludedLetters, limit, excludeWords) {
-    limit = limit || 10;
-    const pattern = parseHintPattern(hintText);
-    if (!pattern) return [];
-    const excluded =
-      excludedLetters instanceof Set
-        ? excludedLetters
-        : new Set(excludedLetters || []);
-    const excludedWordSet =
-      excludeWords instanceof Set ? excludeWords : new Set(excludeWords || []);
-
-    const matches = [];
-    for (const entry of entries) {
-      const word = entry.word.toLowerCase();
-      // Collapse repeated/leading/trailing whitespace but keep single
-      // spaces between words so they line up against WORD_BREAK tokens.
-      const normalized = word.replace(/\s+/g, " ").trim();
-      if (excludedWordSet.has(normalized)) continue;
-      if (wordMatchesPattern(normalized, pattern, excluded)) {
-        matches.push({ word: normalized, weight: entry.weight || 0 });
-      }
-    }
-    matches.sort((a, b) => b.weight - a.weight);
-    return matches.slice(0, limit).map((m) => m.word);
+  function findCandidates(entries, hintText, excludedLetters, limit, excludeWords, scoreFn) {
+    return findCandidatesDetailed(
+      entries,
+      hintText,
+      excludedLetters,
+      limit,
+      excludeWords,
+      scoreFn
+    ).map((m) => m.word);
   }
 
   /**
@@ -120,9 +110,11 @@
    * {word, weight} objects (not just word strings) so callers can
    * compute confidence or display scores.
    *
+   * @param {(word: string) => number} [scoreFn] - optional plausibility
+   *   scorer (0-1), see findCandidates for details.
    * @returns {Array<{word: string, weight: number}>}
    */
-  function findCandidatesDetailed(entries, hintText, excludedLetters, limit, excludeWords) {
+  function findCandidatesDetailed(entries, hintText, excludedLetters, limit, excludeWords, scoreFn) {
     limit = limit || 10;
     const pattern = parseHintPattern(hintText);
     if (!pattern) return [];
@@ -139,11 +131,20 @@
       const normalized = word.replace(/\s+/g, " ").trim();
       if (excludedWordSet.has(normalized)) continue;
       if (wordMatchesPattern(normalized, pattern, excluded)) {
-        matches.push({ word: normalized, weight: entry.weight || 0 });
+        const baseWeight = entry.weight || 0;
+        // The plausibility score only nudges ranking within a small
+        // band (+/-10% of weight) so it acts as a tiebreaker among
+        // similarly-weighted candidates rather than overriding
+        // frequency/learned-count based ranking.
+        const adjusted =
+          typeof scoreFn === "function"
+            ? baseWeight * (0.9 + 0.2 * scoreFn(normalized))
+            : baseWeight;
+        matches.push({ word: normalized, weight: baseWeight, rankScore: adjusted });
       }
     }
-    matches.sort((a, b) => b.weight - a.weight);
-    return matches.slice(0, limit);
+    matches.sort((a, b) => b.rankScore - a.rankScore);
+    return matches.slice(0, limit).map((m) => ({ word: m.word, weight: m.weight }));
   }
 
   /**

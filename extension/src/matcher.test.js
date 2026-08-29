@@ -221,3 +221,27 @@ test("computeConfidence: top weight of 0 or less is 0 confidence", () => {
   ];
   assert.strictEqual(computeConfidence(ranked), 0);
 });
+
+test("findCandidatesDetailed: scoreFn breaks ties among equal weights without changing weight field", () => {
+  const list = entries(["zzq", "cat"], 5); // "zzq" isn't a real bigram sequence
+  const scoreFn = (word) => (word === "cat" ? 1 : 0);
+  const ranked = findCandidatesDetailed(list, "_ _ _", null, 10, null, scoreFn);
+  assert.strictEqual(ranked[0].word, "cat");
+  assert.strictEqual(ranked[0].weight, 5); // weight itself is unmodified
+});
+
+test("findCandidatesDetailed: scoreFn does not override a real weight gap", () => {
+  const list = [
+    { word: "cat", weight: 100 },
+    { word: "zzq", weight: 1 },
+  ];
+  const scoreFn = (word) => (word === "zzq" ? 1 : 0); // favors the low-weight word
+  const ranked = findCandidatesDetailed(list, "_ _ _", null, 10, null, scoreFn);
+  assert.strictEqual(ranked[0].word, "cat"); // weight still dominates
+});
+
+test("findCandidates: still returns plain word strings with a scoreFn passed", () => {
+  const list = entries(["cat", "car"], 5);
+  const result = findCandidates(list, "c a _", null, 10, null, () => 1);
+  assert.deepStrictEqual(result, ["cat", "car"].filter((w) => w === "cat" || w === "car"));
+});

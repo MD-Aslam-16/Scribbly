@@ -204,6 +204,48 @@
     return revealed;
   }
 
+  // Tracks how many chat lines we've already scanned for other players'
+  // wrong guesses, independent of the revealed-word scan above.
+  let lastWrongGuessLineCount = 0;
+
+  /**
+   * Scans chat lines added since the last call for plain guess attempts
+   * typed by *other* players (single words/phrases with no system
+   * formatting, not our own submitted guess). skribbl.io echoes other
+   * players' guesses as ordinary chat lines "<name>: <guess>"; a correct
+   * guess instead triggers a distinct system message (caught separately
+   * by readNewlyRevealedWords), so any plain guess line we see here can
+   * be assumed wrong and excluded from future suggestions this round.
+   *
+   * @returns {string[]} lowercase words/phrases other players have
+   *   already tried unsuccessfully.
+   */
+  function readOtherPlayersWrongGuesses() {
+    const chatEl = getChatContentEl();
+    if (!chatEl) return [];
+
+    const lines = Array.from(chatEl.children);
+    if (lines.length < lastWrongGuessLineCount) {
+      lastWrongGuessLineCount = 0; // chat was cleared/replaced
+    }
+    const newLines = lines.slice(lastWrongGuessLineCount);
+    lastWrongGuessLineCount = lines.length;
+
+    const guesses = [];
+    // Player chat lines are plain "<name>: <text>"; system/announcement
+    // lines (round start, reveals, join/leave) carry their own marker
+    // classes rather than a colon-separated name prefix, so requiring
+    // that shape filters those out without depending on exact class names.
+    const guessLineRe = /^[^:]{1,20}:\s*([a-zA-Z][a-zA-Z\s-]*)$/;
+    for (const el of newLines) {
+      if (el.className && /system|announce|info/i.test(el.className)) continue;
+      const text = (el.textContent || "").trim();
+      const match = text.match(guessLineRe);
+      if (match) guesses.push(match[1].trim().toLowerCase());
+    }
+    return guesses;
+  }
+
   /**
    * Reads the current hint text from the page, preserving word
    * boundaries: letters/blanks within a word are single-space
@@ -325,6 +367,7 @@
     getChatContentEl,
     readHintText,
     readNewlyRevealedWords,
+    readOtherPlayersWrongGuesses,
     isCurrentPlayerDrawing,
     fillChatInput,
     submitGuess,

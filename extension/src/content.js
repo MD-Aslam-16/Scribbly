@@ -11,6 +11,8 @@
   let learnedCounts = {};
   // Words we've already submitted as a guess for the current round,
   // so we never suggest (or resubmit) the same wrong answer twice.
+  // Also absorbs other players' wrong chat guesses (see refresh()), so
+  // the candidate pool shrinks using guesses we didn't even make.
   let triedWords = new Set();
   let guessesThisRound = 0;
   let autoSubmitTimer = null;
@@ -95,6 +97,11 @@
       );
     }
 
+    // Other players' wrong guesses, echoed in chat, are known-bad words
+    // for this round even if we never submitted them ourselves.
+    const wrongGuesses = window.SkribblDom.readOtherPlayersWrongGuesses();
+    for (const w of wrongGuesses) triedWords.add(w);
+
     const hintText = window.SkribblDom.readHintText();
 
     if (!hintText) {
@@ -105,7 +112,9 @@
       return;
     }
 
-    if (hintText === lastHintText) return; // no change, skip re-render
+    // Skip re-render only if nothing changed: same hint AND no newly
+    // excluded words from other players' wrong guesses this tick.
+    if (hintText === lastHintText && wrongGuesses.length === 0) return;
     lastHintText = hintText;
 
     const ranked = window.SkribblMatcher.findCandidatesDetailed(
@@ -113,7 +122,8 @@
       hintText,
       null,
       settings.suggestionCount,
-      triedWords
+      triedWords,
+      window.SkribblScoring.scoreWord
     );
 
     const confidence = window.SkribblMatcher.computeConfidence(ranked);
