@@ -16,6 +16,12 @@
   let triedWords = new Set();
   let guessesThisRound = 0;
   let autoSubmitTimer = null;
+  // The word the pending autoSubmitTimer will submit, so an unrelated
+  // refresh() (triggered by chat noise/other players' messages, not an
+  // actual hint change) doesn't keep cancelling and rescheduling the
+  // same pending guess before its delay ever elapses - which otherwise
+  // stalls auto-play after the first guess or two once chat gets busy.
+  let autoSubmitWord = null;
   // Set whenever triedWords gains an entry (our own guess or another
   // player's), so the next refresh() re-renders even if the hint text
   // itself hasn't changed - otherwise a just-tried word stays visible
@@ -71,18 +77,23 @@
     });
   }
 
-  function refresh() {
+  function cancelPendingAutoSubmit() {
     if (autoSubmitTimer) {
       clearTimeout(autoSubmitTimer);
       autoSubmitTimer = null;
+      autoSubmitWord = null;
     }
+  }
 
+  function refresh() {
     if (!settings || !settings.enabled) {
+      cancelPendingAutoSubmit();
       window.SkribblOverlay.setStatus("Paused (see Settings tab).");
       return;
     }
 
     if (window.SkribblDom.isCurrentPlayerDrawing()) {
+      cancelPendingAutoSubmit();
       lastHintText = null;
       triedWords = new Set();
       triedWordsDirty = false;
@@ -115,6 +126,7 @@
     const hintText = window.SkribblDom.readHintText();
 
     if (!hintText) {
+      cancelPendingAutoSubmit();
       lastHintText = null;
       triedWords = new Set(); // between rounds, clear what we've tried
       triedWordsDirty = false;
@@ -168,10 +180,22 @@
       meetsConfidence
     ) {
       const topWord = rankedAll[0].word;
-      autoSubmitTimer = setTimeout(() => {
-        autoSubmitTimer = null;
-        submitGuess(topWord);
-      }, settings.guessDelayMs);
+      // Only (re)schedule if this is a genuinely new target: an
+      // unrelated refresh() (chat noise, other players guessing) would
+      // otherwise keep re-entering this branch with the same topWord
+      // and endlessly restart the timer, so the delay never elapses and
+      // auto-play stalls after the first guess or two.
+      if (topWord !== autoSubmitWord) {
+        cancelPendingAutoSubmit();
+        autoSubmitWord = topWord;
+        autoSubmitTimer = setTimeout(() => {
+          autoSubmitTimer = null;
+          autoSubmitWord = null;
+          submitGuess(topWord);
+        }, settings.guessDelayMs);
+      }
+    } else {
+      cancelPendingAutoSubmit();
     }
   }
 
