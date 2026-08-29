@@ -27,6 +27,13 @@
   // itself hasn't changed - otherwise a just-tried word stays visible
   // in the suggestion list until the hint happens to change too.
   let triedWordsDirty = false;
+  // Timestamp (Date.now()) of the last submitted guess, so consecutive
+  // auto-guesses are spaced out enough to stay under skribbl.io's own
+  // chat rate limit ("Spam detected! You're sending messages too
+  // quickly.") - guessDelayMs alone only delays a single guess before
+  // it fires, it doesn't guarantee spacing between successive guesses.
+  let lastGuessAt = 0;
+  const MIN_GUESS_INTERVAL_MS = 2200;
 
   function rebuildEntries() {
     weightedEntries = window.SkribblLearning.buildWeightedEntries(
@@ -52,6 +59,7 @@
     triedWords.add(word.toLowerCase());
     triedWordsDirty = true;
     guessesThisRound += 1;
+    lastGuessAt = Date.now();
     window.SkribblDom.submitGuess(word);
   }
 
@@ -188,11 +196,20 @@
       if (topWord !== autoSubmitWord) {
         cancelPendingAutoSubmit();
         autoSubmitWord = topWord;
+        // Never submit sooner than MIN_GUESS_INTERVAL_MS after the
+        // previous guess, on top of the configured guessDelayMs, so
+        // rapid-fire wrong guesses can't trip skribbl.io's chat rate
+        // limiter even when guessDelayMs is set low.
+        const sinceLastGuess = Date.now() - lastGuessAt;
+        const wait = Math.max(
+          settings.guessDelayMs,
+          MIN_GUESS_INTERVAL_MS - sinceLastGuess
+        );
         autoSubmitTimer = setTimeout(() => {
           autoSubmitTimer = null;
           autoSubmitWord = null;
           submitGuess(topWord);
-        }, settings.guessDelayMs);
+        }, wait);
       }
     } else {
       cancelPendingAutoSubmit();
