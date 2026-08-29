@@ -155,11 +155,17 @@
     window.SkribblOverlay.setCandidates(display);
 
     const withinGuessLimit = guessesThisRound < settings.maxGuessesPerRound;
+    // "always" mode skips the confidence check entirely and submits the
+    // top candidate as soon as one exists; "confident" (default) only
+    // submits when computeConfidence clears the threshold. Both modes
+    // still respect the guess cap and submit delay below.
+    const meetsConfidence =
+      settings.autoPlayMode === "always" || confidence >= settings.confidenceThreshold;
     if (
       settings.autoSubmit &&
       withinGuessLimit &&
       rankedAll.length > 0 &&
-      confidence >= settings.confidenceThreshold
+      meetsConfidence
     ) {
       const topWord = rankedAll[0].word;
       autoSubmitTimer = setTimeout(() => {

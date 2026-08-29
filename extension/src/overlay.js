@@ -232,8 +232,34 @@
       body.appendChild(row);
     }
 
+    function addSelect(key, label, options) {
+      const row = document.createElement("label");
+      row.className = "sg-settings-row";
+      row.appendChild(document.createTextNode(label + " "));
+      const select = document.createElement("select");
+      select.className = "sg-settings-select";
+      for (const [value, optLabel] of options) {
+        const opt = document.createElement("option");
+        opt.value = value;
+        opt.textContent = optLabel;
+        opt.selected = settings[key] === value;
+        select.appendChild(opt);
+      }
+      select.addEventListener("change", () => {
+        if (onSettingsChangeCallback) {
+          onSettingsChangeCallback({ [key]: select.value });
+        }
+      });
+      row.appendChild(select);
+      body.appendChild(row);
+    }
+
     addToggle("enabled", "Extension enabled");
-    addToggle("autoSubmit", "Auto-submit confident guesses");
+    addToggle("autoSubmit", "Auto-submit guesses");
+    addSelect("autoPlayMode", "Auto-play mode", [
+      ["confident", "Only when confident"],
+      ["always", "Always guess top pick"],
+    ]);
     addNumber("confidenceThreshold", "Confidence threshold (0-1)", 0, 1, 0.05);
     addNumber("suggestionCount", "Suggestions to show", 1, 20, 1);
     addNumber("maxGuessesPerRound", "Max auto-guesses per round", 0, 20, 1);

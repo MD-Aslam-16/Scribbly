@@ -168,6 +168,17 @@
   font-size: 12px;
 }
 
+#skribbl-guesser-overlay .sg-settings-select {
+  flex: 1;
+  padding: 2px 4px;
+  border: 1px solid #c3d9ee;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #1a2733;
+  background: #ffffff;
+  -webkit-text-fill-color: #1a2733;
+}
+
 #skribbl-guesser-overlay .sg-danger-btn {
   display: block;
   width: 100%;

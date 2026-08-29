@@ -9,6 +9,11 @@
   const DEFAULTS = {
     enabled: true, // master pause/mute toggle
     autoSubmit: true, // auto-submit the top pick when confident
+    // "confident": only auto-submit when computeConfidence clears
+    // confidenceThreshold. "always": submit the top candidate as soon
+    // as one exists, skipping the confidence check (still respects
+    // maxGuessesPerRound and guessDelayMs below).
+    autoPlayMode: "confident",
     confidenceThreshold: 0.35, // min score margin (see computeConfidence) to auto-submit
     suggestionCount: 10, // how many candidates to show
     maxGuessesPerRound: 5, // cap on auto-submitted guesses per round
