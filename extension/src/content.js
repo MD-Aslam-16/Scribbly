@@ -175,17 +175,27 @@
     window.SkribblOverlay.setCandidates(display);
 
     const withinGuessLimit = guessesThisRound < settings.maxGuessesPerRound;
+    // A 2-letter word is so short (e.g. "hi", "of", "to") that the word
+    // bank has very few matches for it regardless of how many total
+    // candidates come back - so once the hint reveals a 2-letter word,
+    // just work through every suggestion in order rather than gating on
+    // pool size or confidence at all.
+    const hasTwoLetterWord = hintText
+      .split("  ")
+      .some((w) => w.split(" ").length === 2);
     // "always" mode skips the confidence check entirely and submits the
     // top candidate as soon as one exists; "confident" (default) only
     // submits when computeConfidence clears the threshold - except when
-    // the remaining candidate pool is small (<=10): at that point there
-    // just aren't many words left it could be, so it's worth trying them
-    // in order even without a strong confidence gap. Both modes still
-    // respect the guess cap and submit delay below.
+    // the remaining candidate pool is small (<=10), or the hint contains
+    // a 2-letter word: in both cases there just aren't many words left
+    // it could be, so it's worth trying them in order even without a
+    // strong confidence gap. Both modes still respect the guess cap and
+    // submit delay below.
     const SMALL_POOL_THRESHOLD = 10;
     const meetsConfidence =
       settings.autoPlayMode === "always" ||
       rankedAll.length <= SMALL_POOL_THRESHOLD ||
+      hasTwoLetterWord ||
       confidence >= settings.confidenceThreshold;
     if (
       settings.autoSubmit &&
